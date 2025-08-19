@@ -27,7 +27,7 @@ export default function TSPPage() {
 
   // Fonction utilitaire pour formater les nombres
   const formatNumber = (num: number): string => {
-    if (num >= INF) return "∞";
+    if (num >= INF || num === null) return "∞";
     return Number.isInteger(num) ? num.toString() : num.toFixed(2);
   };
 
@@ -88,19 +88,19 @@ export default function TSPPage() {
   };
 
   const solve = () => {
-    // Vérifier que la matrice est complète
-    const isMatrixComplete = matrixState.every((row, i) =>
-      row.every((cell, j) => i === j || cell !== null)
+    // Créer une copie de la matrice et remplacer les cellules vides par INF
+    const completedMatrix = matrixState.map((row, i) =>
+      row.map((cell, j) => {
+        if (i === j) return null; // Garder les diagonales comme null (seront converties en INF)
+        return cell ?? INF; // Remplacer les cellules vides par INF au lieu de 0
+      })
     );
 
-    if (!isMatrixComplete) {
-      alert(
-        "Veuillez remplir toutes les cases de la matrice avant de résoudre."
-      );
-      return;
-    }
+    // Mettre à jour l'état avec la matrice complétée
+    setMatrixState(completedMatrix);
 
-    const originalMat = matrixState.map((row, i) =>
+    // Convertir pour le solveur (diagonales = INF, autres = valeur ou INF si null)
+    const originalMat = completedMatrix.map((row, i) =>
       row.map((cell, j) => (i === j ? INF : cell ?? INF))
     );
 
@@ -281,15 +281,24 @@ export default function TSPPage() {
 
   // Rendu du graphe selon le style de l'image fournie
   const renderGraphVisualization = () => {
-    // Positions optimisées pour un affichage plus équilibré
-    const nodePositions: { [key: string]: { x: number; y: number } } = {
-      A: { x: 120, y: 200 }, // Nœud de gauche
-      B: { x: 280, y: 120 }, // Nœud en haut centre
-      C: { x: 440, y: 180 }, // Nœud à droite
-      D: { x: 380, y: 300 }, // Nœud en bas à droite
-      E: { x: 240, y: 340 }, // Nœud en bas centre
-      F: { x: 100, y: 300 }, // Nœud en bas à gauche
+    // Générer dynamiquement les positions des nœuds en cercle
+    const generateNodePositions = (numCities: number) => {
+      const positions: { [key: string]: { x: number; y: number } } = {};
+      const centerX = 280;
+      const centerY = 200;
+      const radius = Math.min(150, 50 + numCities * 15); // Rayon adaptatif
+
+      for (let i = 0; i < numCities; i++) {
+        const angle = (2 * Math.PI * i) / numCities - Math.PI / 2; // Commencer en haut
+        const x = centerX + radius * Math.cos(angle);
+        const y = centerY + radius * Math.sin(angle);
+        positions[cities[i]] = { x, y };
+      }
+
+      return positions;
     };
+
+    const nodePositions = generateNodePositions(cities.length);
 
     // Styles minimalistes
     const EDGE_COLOR = "#4b5563"; // gray-600
@@ -490,7 +499,7 @@ export default function TSPPage() {
 
             {/* Nœuds */}
             <g>
-              {cities.map((city, index) => {
+              {cities.slice(0, N).map((city, index) => {
                 const pos = nodePositions[city];
                 if (!pos) return null;
                 const isInPath = bestPath?.includes(index);
